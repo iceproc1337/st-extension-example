@@ -5,7 +5,7 @@
 import { extension_settings, getContext, loadExtensionSettings } from "../../../extensions.js";
 
 //You'll likely need to import some other functions from the main script
-import { saveSettingsDebounced } from "../../../../script.js";
+import { saveSettingsDebounced, eventSource, event_types, chat } from "../../../../script.js";
 
 // Keep track of where your extension is located, name should match repo name
 const extensionName = "st-extension-example";
@@ -44,6 +44,21 @@ function onButtonClick() {
   );
 }
 
+async function onMessageReceived(dataId) {
+	const msg = chat[dataId].mes
+	console.log("received msg: ", msg)
+}
+
+async function onMessageUpdated(dataId) {
+	const msg = chat[dataId].mes
+	console.log("updated msg: ", msg)
+}
+
+async function onStreamTokenReceived(text) {
+	const msg = text
+	console.log("received stream token: ", msg)
+}
+
 // This function is called when the extension is loaded
 jQuery(async () => {
   // This is an example of loading HTML from a file
@@ -60,4 +75,9 @@ jQuery(async () => {
 
   // Load settings when starting things up (if you have any)
   loadSettings();
+  
+  eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
+  eventSource.on(event_types.STREAM_TOKEN_RECEIVED, onStreamTokenReceived);
+  // For debug
+  eventSource.on(event_types.MESSAGE_UPDATED, onMessageUpdated);  
 });
