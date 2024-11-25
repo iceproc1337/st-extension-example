@@ -1,6 +1,8 @@
 // The main script for the extension
 // The following are examples of some basic extension functionality
 
+import { promptQuietForLoudResponse, sendMessageAs, sendNarratorMessage } from '../../../slash-commands.js';
+
 //You'll likely need to import extension_settings, getContext, and loadExtensionSettings from extensions.js
 import { extension_settings, getContext, loadExtensionSettings } from "../../../extensions.js";
 
@@ -44,19 +46,66 @@ function onButtonClick() {
   );
 }
 
+async function httpPost(url, data) {
+  try {
+    const response = fetch(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+      headers: {
+        "Content-type": "application/json; charset=UTF-8"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Response status: ${response.status}`);
+    }
+
+    const json = await response.json();
+    return json;
+  } catch (error) {
+    return error.message;
+  }
+}
+
+async function handleMessage(msg) {
+  console.log("processing msg: ", msg);
+
+  let match_expression = /([a-zA-Z0-9_]+)\((.*?)\)/;
+  let match_result = msg.match(match_expression);
+  if (match_result) {
+    let function_name = match_result[1];
+    let parameters = match_result[2].split(",");
+
+    let playbook = function_name;
+    let playbook_result = await httpPost("/api/plugins/command-runner/ansible-playbook", { playbook, parameters });
+
+    let prompt = playbook_result;
+    let sendAs = "sys";
+
+    sendNarratorMessage('', prompt);
+    promptQuietForLoudResponse(sendAs, '');
+  }
+}
+
 async function onMessageReceived(dataId) {
-	const msg = chat[dataId].mes
-	console.log("received msg: ", msg)
+  const msg = chat[dataId].mes
+  console.log("received msg: ", msg)
+  await handleMessage(msg);
 }
 
 async function onMessageUpdated(dataId) {
-	const msg = chat[dataId].mes
-	console.log("updated msg: ", msg)
+  const msg = chat[dataId].mes
+  console.log("updated msg: ", msg)
+  await handleMessage(msg);
 }
 
 async function onStreamTokenReceived(text) {
-	const msg = text
-	console.log("received stream token: ", msg)
+  const msg = text
+  console.log("received stream token: ", msg)
+}
+
+async function onGenerationEnded() {
+
 }
 
 // This function is called when the extension is loaded
@@ -75,9 +124,11 @@ jQuery(async () => {
 
   // Load settings when starting things up (if you have any)
   loadSettings();
-  
-  eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
-  eventSource.on(event_types.STREAM_TOKEN_RECEIVED, onStreamTokenReceived);
-  // For debug
-  eventSource.on(event_types.MESSAGE_UPDATED, onMessageUpdated);  
 });
+
+
+eventSource.on(event_types.MESSAGE_RECEIVED, onMessageReceived);
+eventSource.on(event_types.STREAM_TOKEN_RECEIVED, onStreamTokenReceived);
+// For debug
+eventSource.on(event_types.MESSAGE_UPDATED, onMessageUpdated);
+eventSource.on(event_types.GENERATION_ENDED, onGenerationEnded);
